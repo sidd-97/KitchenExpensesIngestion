@@ -1,0 +1,87 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mydatabase
+    username: myuser
+    password: mypassword
+#  flyway:
+#    enabled: true
+#    locations: classpath:db/migration
+  # ADDED: Spring Boot Admin — application name shown in the UI
+  application:
+    name: kitchen-ingestion
+
+  # ADDED: Admin server context path — UI lives at /admin
+  boot:
+    admin:
+      context-path: /admin
+      client:
+        url: http://localhost:8080/admin   # client registers itself with its own server
+        instance:
+          name: kitchen-ingestion
+aws:
+  s3:
+    region: ${AWS_REGION:ap-south-1}
+app:
+  ingestion:
+    confidence-threshold: 0.70
+    scan-paths:
+      - type: LOCAL
+        location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/swiggy
+        source-hint: SWIGGY
+        enabled: true
+      - type: LOCAL
+        location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/zomato
+        source-hint: ZOMATO
+        enabled: true
+      - type: LOCAL
+        location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/offline
+        source-hint: OFFLINE
+        enabled: true
+#      - type: LOCAL
+#        location: /data/bank/inbox
+#        source-hint: BANK
+#        enabled: true
+#      - type: LOCAL
+#        location: /data/manual/inbox
+#        source-hint: MANUAL_EXCEL
+#        enabled: true
+      - type: S3
+        location: s3://my-kitchen-reports/swiggy/
+        source-hint: SWIGGY
+        enabled: false
+      - type: S3
+        location: s3://my-kitchen-reports/swiggy/
+        source-hint: SWIGGY
+        enabled: false
+scheduling:
+  ingestion:
+    cron: "0 0 8 * * MON"
+
+# ADDED: Actuator — expose loggers and all other endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"          # expose all actuator endpoints
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always    # show DB, disk, S3 health in the UI
+    loggers:
+      enabled: true           # allows runtime log level changes
+
+# ADDED: Logging — default everything to ERROR, override specific packages
+logging:
+  level:
+    root: ERROR                                          # everything = ERROR by default
+    com.cloudkitchen.ingestion: ERROR                   # our code = ERROR by default
+    org.springframework.web: ERROR
+    org.springframework.jdbc: ERROR
+    com.zaxxer.hikari: ERROR
+  # Log pattern — shows class name and level clearly in terminal
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+  # Optional: write logs to a file as well
+  file:
+    name: logs/kitchen-ingestion.log

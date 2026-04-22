@@ -1,0 +1,1 @@
+2026-04-23 00:01:08.518 [http-nio-8080-exec-5] INFO  c.c.ingestion.service.IngestionOrchestrator - No files present to process. Stopping ingestion.

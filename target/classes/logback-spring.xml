@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Console appender — coloured output in terminal -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{50}) - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Rolling file appender — keeps 30 days of logs, max 50MB per file -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/kitchen-ingestion.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/kitchen-ingestion-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy
+                    class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>10MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ── Default level: ERROR for everything ─────────────────────────── -->
+    <root level="ERROR">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- ── Our application packages: ERROR by default ──────────────────── -->
+    <!-- These can be changed live via the Admin UI without restarting      -->
+
+    <logger name="com.cloudkitchen.ingestion" level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
+    <!-- Individual class loggers — change these live in the Admin UI -->
+    <logger name="com.cloudkitchen.ingestion.service.IngestionOrchestrator"  level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.discovery.FileDiscoveryService" level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.discovery.PathRegistry"         level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.filename.FileNameParser"        level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.router.FileProcessingRouter"    level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.parser.AbstractFileProcessor"   level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.parser.swiggy.SwiggyOrderProcessor"   level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.parser.zomato.ZomatoOrderProcessor"   level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.parser.zomato.ZomatoInvoiceProcessor" level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.parser.offline.OfflineOrderProcessor" level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.repository.FileMetadataRepository"    level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.repository.SwiggyOrderRepository"     level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.repository.ZomatoOrderRepository"     level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.repository.ZomatoInvoiceRepository"   level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.repository.OfflineOrderRepository"    level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.cloudkitchen.ingestion.service.ConfidenceScorer"             level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/><appender-ref ref="FILE"/>
+    </logger>
+    <!-- ADDED: suppress Netty MacOS DNS warning — harmless, fallback works fine -->
+    <logger name="io.netty.resolver.dns.DnsServerAddressStreamProviders" level="OFF" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
+    <!-- ── Spring internals: keep at ERROR to reduce noise ─────────────── -->
+    <logger name="org.springframework"       level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="com.zaxxer.hikari"         level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="software.amazon.awssdk"    level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="org.apache.poi"            level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+    <logger name="org.apache.commons.csv"    level="ERROR" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
+
+</configuration>
