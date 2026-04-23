@@ -12,102 +12,126 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-/**
- * Discovers new files across all registered paths.
- * Priority ordering: paths with higher historical file frequency are scanned first.
- * "Latest first": within a path, files are ordered by lastModified descending.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileDiscoveryService {
 
-    private final PathRegistry pathRegistry;
+    private final PathRegistry    pathRegistry;
     private final LocalFileSource localFileSource;
-    private final S3FileSource s3FileSource;
-    private final JdbcTemplate jdbc;
+    private final S3FileSource    s3FileSource;
+    private final JdbcTemplate    jdbc;
 
     /**
-     * Discover all unprocessed files across all enabled paths,
-     * ordered by path frequency (most active paths first), then by file recency.
+     * Discovers all unprocessed files across all enabled paths.
+     *
+     * Order of operations:
+     *  1. Refresh path priorities using file_metadata (most active paths first)
+     *  2. Scan each path in priority order, sort files newest-first within each path
+     *  3. Filter out files whose path already exists in file_metadata as PROCESSED or SKIPPED
      */
     public List<FileInput> discoverUnprocessed() {
-        // 1. Refresh path priorities based on audit log frequency
-        //refreshPathPriorities();
+        // Step 1: Re-rank paths based on historical activity in file_metadata
+        // FIXED: was querying file_audit_log (old table) — now queries file_metadata
+        refreshPathPriorities();
 
-        List<FileInput> allFiles = new ArrayList<>();
+        List<FileInput> all = new ArrayList<>();
 
-        // 2. Scan paths in priority order
+        // Step 2: Scan paths in priority order
         for (PathConfig path : pathRegistry.getEnabledSorted()) {
             try {
-                FileSourceStrategy source = resolveSource(path.getInputSource());
-                List<FileInput> files = source.listFiles(path.getLocation(), path.getSourceType());
+                List<FileInput> found = resolveSource(path.getInputSource())
+                        .listFiles(path.getLocation(), path.getSourceType());
 
-                // 3. Sort newest-modified first within each path
-                List<FileInput> sorted = files.stream()
+                // Newest files first within each path
+                found.stream()
                         .sorted(Comparator.comparing(FileInput::getLastModified).reversed())
-                        .toList();
+                        .forEach(all::add);
 
-                log.debug("Path {} yielded {} candidate files", path.getLocation(), sorted.size());
-                allFiles.addAll(sorted);
+                log.debug("Path [{}] yielded {} candidate files", path.getLocation(), found.size());
             } catch (Exception e) {
-                log.error("Failed to scan path {}: {}", path.getLocation(), e.getMessage());
+                log.error("Failed scanning path [{}]: {}", path.getLocation(), e.getMessage());
             }
         }
 
-        // 4. Filter out files whose hash is already in the audit log as PROCESSED
-        /*Set<String> processedHashes = fetchProcessedHashes();
-        return allFiles.stream()
-                .filter(f -> {
-                    try {
-                        String hash = resolveSource(f.getInputSource()).computeHash(f);
-                        return !processedHashes.contains(hash);
-                    } catch (Exception e) {
-                        log.warn("Could not compute hash for {}, including it anyway", f.getPath());
-                        return true;
-                    }
-                })
-                .toList();*/
-        return allFiles;
+        if (all.isEmpty()) {
+            log.info("No files present to process across {} configured paths",
+                    pathRegistry.getEnabledSorted().size());
+            return List.of();
+        }
+
+        // Step 3: Filter out already-processed files
+        // FIXED: was querying file_audit_log — now queries file_metadata
+        Set<String> alreadyProcessed = fetchProcessedFilePaths();
+        List<FileInput> unprocessed = all.stream()
+                .filter(fi -> !alreadyProcessed.contains(fi.getPath()))
+                .toList();
+
+        log.info("Discovery complete: {} total candidates, {} already processed, {} to process",
+                all.size(), all.size() - unprocessed.size(), unprocessed.size());
+
+        return unprocessed;
     }
 
     /**
-     * Recalculates priority for each registered path using the audit log.
-     * Paths with more processed files get a lower priority number (= higher priority).
+     * Re-ranks registered paths by how many files they have historically produced.
+     * Paths with more PROCESSED records in file_metadata get a lower priority number (= higher priority).
+     *
+     * FIXED: was querying non-existent file_audit_log table.
+     *        Now correctly queries file_metadata using path_prefix column.
      */
     private void refreshPathPriorities() {
-        String sql = """
-            SELECT path_prefix, COUNT(*) AS cnt
-            FROM file_audit_log
-            WHERE scan_status = 'PROCESSED'
-            GROUP BY path_prefix
-            ORDER BY cnt DESC
-            """;
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT path_prefix, COUNT(*) AS cnt
+                FROM file_metadata
+                WHERE status = 'PROCESSED'
+                  AND path_prefix IS NOT NULL
+                GROUP BY path_prefix
+                ORDER BY cnt DESC
+                """);
 
-        List<Map<String, Object>> rows = jdbc.queryForList(sql);
-        Map<String, Integer> freqMap = new LinkedHashMap<>();
-        for (int i = 0; i < rows.size(); i++) {
-            freqMap.put((String) rows.get(i).get("path_prefix"), i + 1);
-        }
-
-        // Rebuild registry with updated priorities
-        for (PathConfig cfg : pathRegistry.getAll()) {
-            int newPriority = freqMap.getOrDefault(cfg.getLocation(), 100);
-            if (newPriority != cfg.getPriority()) {
-                pathRegistry.disable(cfg.getId());  // remove old
-                pathRegistry.register(cfg.getInputSource(), cfg.getLocation(), cfg.getSourceType());
-                log.debug("Updated priority for {} → {}", cfg.getLocation(), newPriority);
+            int priority = 1;
+            for (Map<String, Object> row : rows) {
+                String prefix = (String) row.get("path_prefix");
+                int p = priority++;
+                pathRegistry.getAll().stream()
+                        .filter(c -> c.getLocation().equals(prefix))
+                        .forEach(c -> pathRegistry.updatePriority(c.getId(), p));
             }
+
+            if (!rows.isEmpty()) {
+                log.debug("Path priorities refreshed based on {} distinct path prefixes", rows.size());
+            }
+        } catch (Exception e) {
+            // Non-fatal: if priority refresh fails, default priority (100) is used for all paths
+            log.error("Failed to refresh path priorities: {}", e.getMessage());
         }
     }
 
-    private Set<String> fetchProcessedHashes() {
-        String sql = "SELECT file_hash FROM file_audit_log WHERE scan_status IN ('PROCESSED','SKIPPED')";
-        List<String> hashes = jdbc.queryForList(sql, String.class);
-        return new HashSet<>(hashes);
+    /**
+     * Returns the set of file paths that have already been fully processed or deliberately skipped.
+     * Used to avoid re-processing files that are still physically present in the inbox folder.
+     *
+     * FIXED: was querying non-existent file_audit_log table.
+     *        Now correctly queries file_metadata using file_path column.
+     */
+    private Set<String> fetchProcessedFilePaths() {
+        try {
+            List<String> paths = jdbc.queryForList("""
+                SELECT file_path
+                FROM file_metadata
+                WHERE status IN ('PROCESSED', 'SKIPPED', 'DUPLICATE')
+                  AND file_path IS NOT NULL
+                """, String.class);
+            return new HashSet<>(paths);
+        } catch (Exception e) {
+            log.error("Failed to fetch processed file paths: {}", e.getMessage());
+            return new HashSet<>(); // safe fallback: process everything (idempotency key is the final guard)
+        }
     }
 
-    private FileSourceStrategy resolveSource(InputSource inputSource) {
-        return inputSource == InputSource.S3 ? s3FileSource : localFileSource;
+    private FileSourceStrategy resolveSource(InputSource is) {
+        return is == InputSource.S3 ? s3FileSource : localFileSource;
     }
 }

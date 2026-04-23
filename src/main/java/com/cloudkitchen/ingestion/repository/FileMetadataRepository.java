@@ -14,6 +14,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Repository
@@ -25,33 +26,38 @@ public class FileMetadataRepository {
     /**
      * Insert a new file_metadata record and return the generated ID.
      * Returns empty if the idempotency key already exists (duplicate).
+     *
+     * MODIFIED: now includes file_path and path_prefix columns.
      */
     public Optional<Long> insertIfNew(FileMetadata meta) {
         String sql = """
             INSERT INTO file_metadata
-                (file_name, source, processing_type, file_origin, idempotency_key,
-                 report_start_date, report_end_date, status, total_rows,
-                 processed_rows, failed_rows, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                (file_name, file_path, path_prefix, source, processing_type,
+                 file_origin, idempotency_key, report_start_date, report_end_date,
+                 status, total_rows, processed_rows, failed_rows, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
         try {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbc.update(con -> {
-                PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-                ps.setString(1, meta.getFileName());
-                ps.setString(2, meta.getSource().name());
-                ps.setString(3, meta.getProcessingType().name());
-                ps.setString(4, meta.getFileOrigin().name());
-                ps.setString(5, meta.getIdempotencyKey());
-                ps.setObject(6, meta.getReportStartDate() != null
+                PreparedStatement ps = con.prepareStatement(
+                        sql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1,  meta.getFileName());
+                ps.setString(2,  meta.getFilePath());        // ADDED
+                ps.setString(3,  meta.getPathPrefix());      // ADDED
+                ps.setString(4,  meta.getSource().name());
+                ps.setString(5,  meta.getProcessingType().name());
+                ps.setString(6,  meta.getFileOrigin().name());
+                ps.setString(7,  meta.getIdempotencyKey());
+                ps.setObject(8,  meta.getReportStartDate() != null
                         ? Date.valueOf(meta.getReportStartDate()) : null);
-                ps.setObject(7, meta.getReportEndDate() != null
+                ps.setObject(9,  meta.getReportEndDate() != null
                         ? Date.valueOf(meta.getReportEndDate()) : null);
-                ps.setString(8, meta.getStatus().name());
-                ps.setInt(9, meta.getTotalRows());
-                ps.setInt(10, meta.getProcessedRows());
-                ps.setInt(11, meta.getFailedRows());
-                ps.setTimestamp(12, Timestamp.from(meta.getCreatedAt()));
+                ps.setString(10, meta.getStatus().name());
+                ps.setInt(11,    meta.getTotalRows());
+                ps.setInt(12,    meta.getProcessedRows());
+                ps.setInt(13,    meta.getFailedRows());
+                ps.setTimestamp(14, Timestamp.from(meta.getCreatedAt()));
                 return ps;
             }, keyHolder);
             Number key = keyHolder.getKey();
@@ -73,10 +79,11 @@ public class FileMetadataRepository {
                 errorMessage, Timestamp.from(Instant.now()), id);
     }
 
-    public void updateDateRange(Long id, java.time.LocalDate startDate,
-                                java.time.LocalDate endDate) {
+    public void updateDateRange(Long id, LocalDate startDate, LocalDate endDate) {
         jdbc.update("""
-            UPDATE file_metadata SET report_start_date=?, report_end_date=? WHERE id=?
+            UPDATE file_metadata
+            SET report_start_date=?, report_end_date=?
+            WHERE id=?
             """,
                 startDate != null ? Date.valueOf(startDate) : null,
                 endDate   != null ? Date.valueOf(endDate)   : null,

@@ -3,21 +3,21 @@ package com.cloudkitchen.ingestion.service;
 import com.cloudkitchen.ingestion.discovery.FileDiscoveryService;
 import com.cloudkitchen.ingestion.filename.FileNameParser;
 import com.cloudkitchen.ingestion.filename.ParsedFileName;
+import com.cloudkitchen.ingestion.model.FileInput;
 import com.cloudkitchen.ingestion.model.FileMetadata;
 import com.cloudkitchen.ingestion.model.IngestionResult;
 import com.cloudkitchen.ingestion.model.ProcessingResult;
 import com.cloudkitchen.ingestion.model.enums.FileOrigin;
 import com.cloudkitchen.ingestion.model.enums.FileStatus;
-import com.cloudkitchen.ingestion.model.enums.SourceType;
+import com.cloudkitchen.ingestion.model.enums.InputSource;
 import com.cloudkitchen.ingestion.model.enums.ProcessingType;
+import com.cloudkitchen.ingestion.model.enums.SourceType;
 import com.cloudkitchen.ingestion.parser.FileProcessor;
 import com.cloudkitchen.ingestion.repository.FileMetadataRepository;
 import com.cloudkitchen.ingestion.router.FileProcessingRouter;
 import com.cloudkitchen.ingestion.source.FileSourceStrategy;
 import com.cloudkitchen.ingestion.source.LocalFileSource;
 import com.cloudkitchen.ingestion.source.S3FileSource;
-import com.cloudkitchen.ingestion.model.FileInput;
-import com.cloudkitchen.ingestion.model.enums.InputSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -100,12 +100,17 @@ public class IngestionOrchestrator {
                     "Duplicate: same source/type/date-range already processed");
         }
 
-        // Step 3: Insert file_metadata with PROCESSING status (always commits — survives data rollback)
+        // Step 3: Insert file_metadata
+        // MODIFIED: now populates filePath and pathPrefix so FileDiscoveryService
+        //           can correctly query file_metadata on subsequent runs
         FileMetadata meta = FileMetadata.builder()
                 .fileName(fi.getFilename())
+                .filePath(fi.getPath())                          // ADDED
+                .pathPrefix(derivePrefix(fi.getPath()))         // ADDED
                 .source(parsed.getSource())
                 .processingType(parsed.getProcessingType())
-                .fileOrigin(fi.getInputSource() == InputSource.S3 ? FileOrigin.S3 : FileOrigin.LOCAL)
+                .fileOrigin(fi.getInputSource() == InputSource.S3
+                        ? FileOrigin.S3 : FileOrigin.LOCAL)
                 .idempotencyKey(parsed.getIdempotencyKey())
                 .reportStartDate(parsed.getStartDate())
                 .reportEndDate(parsed.getEndDate())
@@ -157,7 +162,19 @@ public class IngestionOrchestrator {
         }
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────
+
     private FileSourceStrategy resolveSource(InputSource is) {
         return is == InputSource.S3 ? s3FileSource : localFileSource;
+    }
+
+    /**
+     * Extracts the directory portion of a file path.
+     * /data/swiggy/inbox/SWIGGY_ORDER_*.csv  →  /data/swiggy/inbox
+     * s3://bucket/prefix/FILE.csv            →  s3://bucket/prefix
+     */
+    private String derivePrefix(String path) {
+        int lastSlash = path.lastIndexOf('/');
+        return lastSlash > 0 ? path.substring(0, lastSlash) : path;
     }
 }
