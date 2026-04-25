@@ -41,7 +41,7 @@ public class FileMetadataRepository {
             KeyHolder keyHolder = new GeneratedKeyHolder();
             jdbc.update(con -> {
                 PreparedStatement ps = con.prepareStatement(
-                        sql, Statement.RETURN_GENERATED_KEYS);
+                        sql, new String[]{"id"});
                 ps.setString(1,  meta.getFileName());
                 ps.setString(2,  meta.getFilePath());        // ADDED
                 ps.setString(3,  meta.getPathPrefix());      // ADDED

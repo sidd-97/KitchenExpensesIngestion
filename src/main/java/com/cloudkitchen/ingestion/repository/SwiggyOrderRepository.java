@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,21 +17,26 @@ public class SwiggyOrderRepository {
     private final JdbcTemplate jdbc;
 
     public void batchInsert(List<SwiggyOrder> records) {
+        // FIXED: replaced ?::jsonb with plain ? for review_flags.
+        // Column count: 38. Placeholder count: 38. They now match exactly.
         String sql = """
             INSERT INTO swiggy_orders (
                 file_metadata_id, file_name, source, file_origin,
-                order_id, order_status, order_relay_time, order_acceptance_time,
-                order_delivery_time, order_cancellation_time, total_bill_amount,
-                tax_restaurant, packing_charge, restaurant_trade_discount,
-                restaurant_coupon_discount_share, restaurant_bear,
+                order_id, order_status,
+                order_relay_time, order_acceptance_time,
+                order_delivery_time, order_cancellation_time,
+                total_bill_amount, tax_restaurant, packing_charge,
+                restaurant_trade_discount, restaurant_coupon_discount_share,
+                restaurant_bear,
                 item_sgst, item_cgst, item_igst, item_gst_inclusive,
-                packaging_charge_sgst, packaging_charge_cgst, packaging_charge_igst,
-                packaging_gst_inclusive, service_charge_sgst, service_charge_cgst,
+                packaging_charge_sgst, packaging_charge_cgst,
+                packaging_charge_igst, packaging_gst_inclusive,
+                service_charge_sgst, service_charge_cgst,
                 service_charge_igst, service_charge_gst_inclusive,
                 food_prepared, edited_status, item_count, mou_type,
                 cancelled_reason, cancellation_responsible_entity,
                 items_detail, confidence_score, review_flags, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
 
         jdbc.batchUpdate(sql, records, records.size(), (ps, r) -> {
@@ -70,7 +76,8 @@ public class SwiggyOrderRepository {
             ps.setString(34, r.getCancellationResponsibleEntity());
             ps.setString(35, r.getItemsDetail());
             ps.setDouble(36, r.getConfidenceScore());
-            ps.setString(37, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]");
+            // FIXED: Types.OTHER for JSONB column
+            ps.setObject(37,r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]", Types.OTHER);
             ps.setTimestamp(38, Timestamp.from(Instant.now()));
         });
     }

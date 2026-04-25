@@ -28,7 +28,7 @@ app:
       - type: LOCAL
         location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/swiggy
         source-hint: SWIGGY
-        enabled: true
+        enabled: false
       - type: LOCAL
         location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/zomato
         source-hint: ZOMATO
@@ -36,7 +36,7 @@ app:
       - type: LOCAL
         location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/offline
         source-hint: OFFLINE
-        enabled: true
+        enabled: false
 #      - type: LOCAL
 #        location: /data/bank/inbox
 #        source-hint: BANK

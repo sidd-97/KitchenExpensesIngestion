@@ -92,7 +92,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .cancellationPolicyPercent(dec(row, "Cancellation policy (% Amount refunded back to restaurant partner)"))
                 .cancellationRejectionReason(str(row, "Cancellation/ Rejection reason"))
                 .cancelledRejectedState(str(row, "Cancelled/ Rejected state (Order status at the time it was cancelled/ rejected)"))
-                .orderType(str(row, "Order typ"))           // note: "Order typ" — typo in source
+                .orderType(str(row, "Order type"))
                 .deliveryStateCode(str(row, "Delivery state code"))
                 .subtotal(dec(row, "Subtotal (items total)"))
                 .packagingCharge(dec(row, "Packaging charge"))

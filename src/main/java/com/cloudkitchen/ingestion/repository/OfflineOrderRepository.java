@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
@@ -21,12 +22,14 @@ public class OfflineOrderRepository {
     private final ObjectMapper  objectMapper;
 
     public void batchInsert(List<OfflineOrder> records) {
+        // FIXED: all JSONB columns use plain ? with Types.OTHER in setter.
+        // Column count: 11. Placeholder count: 11.
         String sql = """
             INSERT INTO offline_orders (
                 file_metadata_id, file_name, source, file_origin,
                 order_id, order_hash_key, row_number,
                 raw_data, confidence_score, review_flags, created_at
-            ) VALUES (?,?,?,?,?,?,?,?::jsonb,?,?::jsonb,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """;
 
         jdbc.batchUpdate(sql, records, records.size(), (ps, r) -> {
@@ -37,9 +40,11 @@ public class OfflineOrderRepository {
             ps.setString(5, r.getOrderId());
             ps.setString(6, r.getOrderHashKey());
             ps.setInt(7,    r.getRowNumber());
-            ps.setString(8, toJson(r.getRawData()));
+            // FIXED: Types.OTHER for JSONB raw_data column
+            ps.setObject(8, toJson(r.getRawData()), Types.OTHER);
             ps.setDouble(9, r.getConfidenceScore());
-            ps.setString(10, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]");
+            // FIXED: Types.OTHER for JSONB review_flags column
+            ps.setObject(10, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]", Types.OTHER);
             ps.setTimestamp(11, Timestamp.from(Instant.now()));
         });
     }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
@@ -46,7 +47,7 @@ public class ZomatoInvoiceRepository {
                 settlement_status, settlement_date, bank_utr,
                 unsettled_amount, customer_id,
                 confidence_score, review_flags, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
 
         jdbc.batchUpdate(sql, records, records.size(), (ps, r) -> {
@@ -117,7 +118,9 @@ public class ZomatoInvoiceRepository {
             ps.setBigDecimal(i++, r.getUnsettledAmount());
             ps.setString(i++,  r.getCustomerId());
             ps.setDouble(i++,  r.getConfidenceScore());
-            ps.setString(i++,  r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]");
+            // FIXED: use Types.OTHER for JSONB — tells PostgreSQL JDBC driver
+            // to pass this string value as-is to a JSONB column
+            ps.setObject(i++,r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]",Types.OTHER);
             ps.setTimestamp(i, Timestamp.from(Instant.now()));
         });
     }

@@ -16,6 +16,8 @@ CREATE TABLE file_metadata (
     processed_rows    INT          NOT NULL DEFAULT 0,
     failed_rows       INT          NOT NULL DEFAULT 0,
     error_message     TEXT,
+    file_path        TEXT,                        -- S3 key or local path
+    path_prefix      TEXT,                        -- S3 bucket or local dir
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     processed_at      TIMESTAMPTZ
 );

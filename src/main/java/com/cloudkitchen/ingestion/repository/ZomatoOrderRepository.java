@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
@@ -16,20 +17,25 @@ public class ZomatoOrderRepository {
     private final JdbcTemplate jdbc;
 
     public void batchInsert(List<ZomatoOrder> records) {
+        // FIXED: replaced ?::jsonb with plain ? for review_flags.
+        // Column count: 37. Placeholder count: 37. They now match exactly.
         String sql = """
             INSERT INTO zomato_orders (
                 file_metadata_id, file_name, source, file_origin,
                 restaurant_id, restaurant_name, subzone, city,
-                order_id, order_placed_at, order_status, delivery_type, distance_km,
-                items_in_order, instructions, discount_construct,
-                bill_subtotal, packaging_charges, restaurant_discount_promo,
-                restaurant_discount_others, gold_discount, brand_pack_discount, total,
-                cancellation_rejection_reason, restaurant_compensation_cancellation,
-                restaurant_penalty_rejection, kpt_duration_minutes,
-                rider_wait_time_minutes, order_ready_marked, rating, review,
+                order_id, order_placed_at, order_status, delivery_type,
+                distance_km, items_in_order, instructions,
+                discount_construct, bill_subtotal, packaging_charges,
+                restaurant_discount_promo, restaurant_discount_others,
+                gold_discount, brand_pack_discount, total,
+                cancellation_rejection_reason,
+                restaurant_compensation_cancellation,
+                restaurant_penalty_rejection,
+                kpt_duration_minutes, rider_wait_time_minutes,
+                order_ready_marked, rating, review,
                 customer_complaint_tag, customer_id, customer_phone,
                 confidence_score, review_flags, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?::jsonb,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """;
 
         jdbc.batchUpdate(sql, records, records.size(), (ps, r) -> {
@@ -68,7 +74,8 @@ public class ZomatoOrderRepository {
             ps.setString(33, r.getCustomerId());
             ps.setString(34, r.getCustomerPhone());
             ps.setDouble(35, r.getConfidenceScore());
-            ps.setString(36, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]");
+            // FIXED: Types.OTHER for JSONB column
+            ps.setObject(36, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]", Types.OTHER);
             ps.setTimestamp(37, Timestamp.from(Instant.now()));
         });
     }
