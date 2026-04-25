@@ -100,17 +100,20 @@ public class IngestionOrchestrator {
                     "Duplicate: same source/type/date-range already processed");
         }
 
-        // Step 3: Insert file_metadata
-        // MODIFIED: now populates filePath and pathPrefix so FileDiscoveryService
-        //           can correctly query file_metadata on subsequent runs
+        // Step 3: Resolve file origin — LOCAL or S3
+        // MODIFIED: computed once here and reused throughout — fixes the bug
+        // where fileOrigin was incorrectly set to source name (e.g. "ZOMATO")
+        FileOrigin fileOrigin = fi.getInputSource() == InputSource.S3
+                ? FileOrigin.S3 : FileOrigin.LOCAL;
+
+        // Step 4: Insert file_metadata
         FileMetadata meta = FileMetadata.builder()
                 .fileName(fi.getFilename())
-                .filePath(fi.getPath())                          // ADDED
-                .pathPrefix(derivePrefix(fi.getPath()))         // ADDED
+                .filePath(fi.getPath())
+                .pathPrefix(derivePrefix(fi.getPath()))
                 .source(parsed.getSource())
                 .processingType(parsed.getProcessingType())
-                .fileOrigin(fi.getInputSource() == InputSource.S3
-                        ? FileOrigin.S3 : FileOrigin.LOCAL)
+                .fileOrigin(fileOrigin)
                 .idempotencyKey(parsed.getIdempotencyKey())
                 .reportStartDate(parsed.getStartDate())
                 .reportEndDate(parsed.getEndDate())
@@ -124,7 +127,7 @@ public class IngestionOrchestrator {
         }
         Long metaId = fileMetadataId.get();
 
-        // Step 4: Read file bytes
+        // Step 5: Read file bytes
         byte[] content;
         try {
             FileSourceStrategy source = resolveSource(fi.getInputSource());
@@ -136,10 +139,11 @@ public class IngestionOrchestrator {
             return IngestionResult.failed(fi.getPath(), "File read error: " + e.getMessage());
         }
 
-        // Step 5: Route and process
+        // Step 6: Route and process
+        // MODIFIED: pass fileOrigin into process() so it reaches mapRow()
         try {
             FileProcessor processor = router.route(parsed.getSource(), parsed.getProcessingType());
-            ProcessingResult result  = processor.process(content, parsed, metaId);
+            ProcessingResult result = processor.process(content, parsed, metaId, fileOrigin);  // FIXED: fileOrigin passed in
 
             fileMetadataRepo.updateStatus(metaId, FileStatus.PROCESSED,
                     result.totalRows(), result.processedRows(), result.failedRows(), null);

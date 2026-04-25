@@ -1,6 +1,6 @@
 *.log
-logs/
-log/
+/logs/
+/log/
 *.tmp
 .idea
 target/

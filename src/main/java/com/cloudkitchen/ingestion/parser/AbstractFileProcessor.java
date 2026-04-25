@@ -4,6 +4,7 @@ import com.cloudkitchen.ingestion.exception.IngestionException;
 import com.cloudkitchen.ingestion.filename.ParsedFileName;
 import com.cloudkitchen.ingestion.model.DateRange;
 import com.cloudkitchen.ingestion.model.ProcessingResult;
+import com.cloudkitchen.ingestion.model.enums.FileOrigin;
 import com.cloudkitchen.ingestion.service.ConfidenceScorer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +36,7 @@ public abstract class AbstractFileProcessor<T> implements FileProcessor {
     protected final PlatformTransactionManager transactionManager;
 
     @Override
-    public final ProcessingResult process(byte[] content, ParsedFileName meta,
-                                          Long fileMetadataId) throws Exception {
+    public final ProcessingResult process(byte[] content, ParsedFileName meta, Long fileMetadataId, FileOrigin fileOrigin) throws Exception {  // MODIFIED: added fileOrigin
 
         log.info("[{}] Starting process for file: {}", getClass().getSimpleName(), meta.getOriginalFileName());
 
@@ -48,7 +48,7 @@ public abstract class AbstractFileProcessor<T> implements FileProcessor {
             throw new IngestionException("File has no data rows: " + meta.getOriginalFileName());
         }
 
-        // Step 2: Check for null/missing dates across all rows
+        // Step 2: Check for null dates across all rows
         List<Integer> nullDateRows = findNullDateRows(rawRows);
         if (!nullDateRows.isEmpty()) {
             throw new IngestionException(
@@ -62,7 +62,7 @@ public abstract class AbstractFileProcessor<T> implements FileProcessor {
         for (int i = 0; i < rawRows.size(); i++) {
             try {
                 T record = mapRow(rawRows.get(i), fileMetadataId,
-                        meta.getOriginalFileName(), meta.getSource().name());
+                        meta.getOriginalFileName(), fileOrigin.name());    // FIXED: was meta.getSource().name()
                 records.add(record);
             } catch (Exception e) {
                 log.warn("[{}] Row {} mapping failed: {}", getClass().getSimpleName(), i + 1, e.getMessage());

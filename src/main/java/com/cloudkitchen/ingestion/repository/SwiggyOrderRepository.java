@@ -1,7 +1,10 @@
 package com.cloudkitchen.ingestion.repository;
 
 import com.cloudkitchen.ingestion.model.SwiggyOrder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -10,11 +13,14 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class SwiggyOrderRepository {
 
     private final JdbcTemplate jdbc;
+    // ADDED: ObjectMapper to serialize review_flags to valid JSON array
+    private final ObjectMapper  objectMapper;
 
     public void batchInsert(List<SwiggyOrder> records) {
         // FIXED: replaced ?::jsonb with plain ? for review_flags.
@@ -76,13 +82,23 @@ public class SwiggyOrderRepository {
             ps.setString(34, r.getCancellationResponsibleEntity());
             ps.setString(35, r.getItemsDetail());
             ps.setDouble(36, r.getConfidenceScore());
-            // FIXED: Types.OTHER for JSONB column
-            ps.setObject(37,r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]", Types.OTHER);
+            // FIXED: toJson() produces valid JSON array
+            ps.setObject(37, toJson(r.getReviewFlags()), Types.OTHER);
             ps.setTimestamp(38, Timestamp.from(Instant.now()));
         });
     }
 
     private Timestamp toTs(java.time.Instant instant) {
         return instant != null ? Timestamp.from(instant) : null;
+    }
+
+    // ADDED: produces valid JSON array ["item1","item2"] not [item1, item2]
+    private String toJson(Object obj) {
+        if (obj == null) return "[]";
+        try { return objectMapper.writeValueAsString(obj); }
+        catch (JsonProcessingException e) {
+            log.warn("Failed to serialize to JSON: {}", e.getMessage());
+            return "[]";
+        }
     }
 }

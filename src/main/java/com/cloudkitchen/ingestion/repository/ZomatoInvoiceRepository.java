@@ -1,7 +1,10 @@
 package com.cloudkitchen.ingestion.repository;
 
 import com.cloudkitchen.ingestion.model.ZomatoInvoice;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -11,11 +14,14 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class ZomatoInvoiceRepository {
 
     private final JdbcTemplate jdbc;
+    // ADDED: ObjectMapper to serialize review_flags to valid JSON array
+    private final ObjectMapper  objectMapper;
 
     public void batchInsert(List<ZomatoInvoice> records) {
         String sql = """
@@ -118,10 +124,20 @@ public class ZomatoInvoiceRepository {
             ps.setBigDecimal(i++, r.getUnsettledAmount());
             ps.setString(i++,  r.getCustomerId());
             ps.setDouble(i++,  r.getConfidenceScore());
-            // FIXED: use Types.OTHER for JSONB — tells PostgreSQL JDBC driver
-            // to pass this string value as-is to a JSONB column
-            ps.setObject(i++,r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]",Types.OTHER);
+            // FIXED: toJson() produces valid JSON array e.g. ["flag1","flag2"]
+            // instead of List.toString() which produces [flag1, flag2] (invalid JSON)
+            ps.setObject(i++,  toJson(r.getReviewFlags()), Types.OTHER);
             ps.setTimestamp(i, Timestamp.from(Instant.now()));
         });
+    }
+
+    // ADDED: produces valid JSON array — ["item1","item2"] not [item1, item2]
+    private String toJson(Object obj) {
+        if (obj == null) return "[]";
+        try { return objectMapper.writeValueAsString(obj); }
+        catch (JsonProcessingException e) {
+            log.warn("Failed to serialize to JSON: {}", e.getMessage());
+            return "[]";
+        }
     }
 }

@@ -1,7 +1,10 @@
 package com.cloudkitchen.ingestion.repository;
 
 import com.cloudkitchen.ingestion.model.ZomatoOrder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -10,11 +13,14 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class ZomatoOrderRepository {
 
     private final JdbcTemplate jdbc;
+    // ADDED: ObjectMapper to serialize review_flags to valid JSON array
+    private final ObjectMapper  objectMapper;
 
     public void batchInsert(List<ZomatoOrder> records) {
         // FIXED: replaced ?::jsonb with plain ? for review_flags.
@@ -74,9 +80,19 @@ public class ZomatoOrderRepository {
             ps.setString(33, r.getCustomerId());
             ps.setString(34, r.getCustomerPhone());
             ps.setDouble(35, r.getConfidenceScore());
-            // FIXED: Types.OTHER for JSONB column
-            ps.setObject(36, r.getReviewFlags() != null ? r.getReviewFlags().toString() : "[]", Types.OTHER);
+            // FIXED: toJson() produces valid JSON array
+            ps.setObject(36, toJson(r.getReviewFlags()), Types.OTHER);
             ps.setTimestamp(37, Timestamp.from(Instant.now()));
         });
+    }
+
+    // ADDED: produces valid JSON array ["item1","item2"] not [item1, item2]
+    private String toJson(Object obj) {
+        if (obj == null) return "[]";
+        try { return objectMapper.writeValueAsString(obj); }
+        catch (JsonProcessingException e) {
+            log.warn("Failed to serialize to JSON: {}", e.getMessage());
+            return "[]";
+        }
     }
 }
