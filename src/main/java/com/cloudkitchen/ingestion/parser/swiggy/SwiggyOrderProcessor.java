@@ -165,13 +165,15 @@ public class SwiggyOrderProcessor extends AbstractFileProcessor<SwiggyOrder> {
         if (v == null || v.isBlank()) return null;
         for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))) {
+                DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))) {
             try {
                 return java.time.LocalDateTime.parse(v.trim(), fmt)
                         .atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                log.warn("Could not parse timestamp: {}", v);
+            }
         }
-        log.warn("Could not parse timestamp: {}", v);
         return null;
     }
 }

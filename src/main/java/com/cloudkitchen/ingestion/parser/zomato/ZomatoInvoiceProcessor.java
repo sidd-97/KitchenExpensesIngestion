@@ -89,9 +89,9 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .discountConstruct(str(row, "Discount construct"))
                 .modeOfPayment(str(row, "Mode of payment"))
                 .orderStatus(str(row, "Order status (Delivered/ Cancelled/ Rejected)"))
-                .cancellationPolicyPercent(dec(row, "Cancellation policy (% Amount refunded back to restaurant partner)"))
+                .cancellationPolicyPercent(dec(row, "Cancellation policy \n(% Amount refunded back to restaurant partner)"))
                 .cancellationRejectionReason(str(row, "Cancellation/ Rejection reason"))
-                .cancelledRejectedState(str(row, "Cancelled/ Rejected state (Order status at the time it was cancelled/ rejected)"))
+                .cancelledRejectedState(str(row, "Cancelled/ Rejected state \n(Order status at the time it was cancelled/ rejected)"))
                 .orderType(str(row, "Order type"))
                 .deliveryStateCode(str(row, "Delivery state code"))
                 .subtotal(dec(row, "Subtotal (items total)"))
@@ -102,20 +102,20 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .brandPackSubscriptionFee(dec(row, "Brand pack subscription fee"))
                 .deliveryChargeDiscountRelisting(dec(row, "Delivery charge discount/ Relisting discount"))
                 .totalGstFromCustomers(dec(row, "Total GST collected from customers"))
-                .netOrderValue(dec(row, "Net order value"))
-                .commissionableSubtotal(dec(row, "Commissionable value of Subtotal excluding restuarant discounts"))
+                .netOrderValue(dec(row, "Net order value\n[(1) + (2) + (3) - (4) - (5) + (6) - (7) + (8)]"))
+                .commissionableSubtotal(dec(row, "Commissionable value of Subtotal excluding restuarant discounts \n[(1) - (4) - (5)]"))
                 .commissionablePackagingCharge(dec(row, "Commissionable value of Packaging charge"))
                 .commissionableTotalGst(dec(row, "Commissionable value of Total GST collected from customers"))
-                .totalCommissionableValue(dec(row, "Total commissionable value"))
+                .totalCommissionableValue(dec(row, "Total commissionable value\n[(9) + (10) + (11)]"))
                 .baseServiceFeePercent(dec(row, "Base service fee %"))
-                .baseServiceFee(dec(row, "Base service fee"))
+                .baseServiceFee(dec(row, "Base service fee\n[(12)% * (B)]"))
                 .actualOrderDistanceKm(dec(row, "Actual order distance (km)"))
                 .longDistanceEnablementFee(dec(row, "Long distance enablement fee"))
                 .discountLongDistanceFee(dec(row, "Discount on long distance enablement fee"))
-                .discountServiceFee30Cap(dec(row, "Discount on service fee due to 30% capping"))
+                .discountServiceFee30Cap(dec(row, "Discount on service fee due to 30% capping\n\nService fees capped at 30% of commissionable value (B)"))
                 .paymentMechanismFee(dec(row, "Payment mechanism fee"))
-                .serviceFeeAndPaymentMechFee(dec(row, "Service fee & payment mechanism fee"))
-                .taxesOnServiceFee(dec(row, "Taxes on service fee & payment mechanism fee"))
+                .serviceFeeAndPaymentMechFee(dec(row, "Service fee & payment mechanism fee\n[(13) + (15) - (16) - (17) + (18)]"))
+                .taxesOnServiceFee(dec(row, "Taxes on service fee & payment mechanism fee\n[(C)*18%]"))
                 .applicableAmountTcs(dec(row, "Applicable amount for TCS"))
                 .applicableAmount9_5(dec(row, "Applicable amount for 9(5)"))
                 .taxCollectedAtSource(dec(row, "Tax collected at source"))
@@ -123,7 +123,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .tds194oAmount(dec(row, "TDS 194O amount"))
                 .gstPaidByZomato9_5(dec(row, "GST paid by Zomato on behalf of restaurant - under section 9(5)"))
                 .gstToBePaidByRestaurant(dec(row, "GST to be paid by Restaurant partner to Govt"))
-                .governmentCharges(dec(row, "Government charges"))
+                .governmentCharges(dec(row, "Government charges\n[(19) + (22) + (23) + (24) + (25)]"))
                 .customerCompensationRecoupment(dec(row, "Customer compensation/ recoupment"))
                 .deliveryChargesRecovery(dec(row, "Delivery charges recovery"))
                 .amountReceivedCash(dec(row, "Amount received in cash (on self delivery orders)"))
@@ -132,10 +132,10 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .extraInventoryAdsDeduction(dec(row, "Extra inventory ads (order level deduction)"))
                 .brandLoyaltyPointsRedemption(dec(row, "Brand loyalty points redemption"))
                 .expressOrderFee(dec(row, "Express order fee"))
-                .otherOrderLevelDeductions(dec(row, "Other order-level deductions"))
-                .netDeductions(dec(row, "Net Deductions"))
-                .netAdditions(dec(row, "Net Additions  (cancellation refund for cancelled orders/ tip for kitchen staff for delivered orders)"))
-                .orderLevelPayout(dec(row, "Order level Payout"))
+                .otherOrderLevelDeductions(dec(row, "Other order-level deductions\n[(27) + (28) + (29) + (30) + (31) + (32) + (33) + (34)]"))
+                .netDeductions(dec(row, "Net Deductions\n[(C) + (D) + (E)]"))
+                .netAdditions(dec(row, "Net Additions  \n(cancellation refund for cancelled orders/ tip for kitchen staff for delivered orders)"))
+                .orderLevelPayout(dec(row, "Order level Payout\n(A) - (F) + (G)"))
                 .settlementStatus(str(row, "Settlement status"))
                 .settlementDate(parseDate(str(row, "Settlement date")))
                 .bankUtr(str(row, "Bank UTR"))
@@ -208,11 +208,13 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
         for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ofPattern("dd/MM/yyyy"),
                 DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-                DateTimeFormatter.ofPattern("d/M/yyyy"))) {
+                DateTimeFormatter.ofPattern("d/M/yyyy"),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))) { //ADDED: Fixed the time format changes dates having time in the end
             try { return LocalDate.parse(v.trim(), fmt); }
-            catch (Exception ignored) {}
+            catch (Exception ignored) {
+                log.warn("Could not parse timestamp: {}", v);
+            }
         }
-        log.warn("Could not parse date: {}", v);
         return null;
     }
 }

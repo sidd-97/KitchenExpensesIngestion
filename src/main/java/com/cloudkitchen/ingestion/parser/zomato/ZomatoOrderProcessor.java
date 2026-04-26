@@ -146,11 +146,13 @@ public class ZomatoOrderProcessor extends AbstractFileProcessor<ZomatoOrder> {
         for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
                 DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm:ss a",
-                        java.util.Locale.ENGLISH))) {
+                        java.util.Locale.ENGLISH), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))) {
             try {
                 return java.time.LocalDateTime.parse(v.trim(), fmt)
                         .atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                log.warn("Could not parse timestamp: {}", v);
+            }
         }
         return null;
     }
