@@ -133,20 +133,36 @@ public class ZomatoOrderProcessor extends AbstractFileProcessor<ZomatoOrder> {
     private BigDecimal dec(Map<String, String> row, String key) {
         String v = str(row, key);
         if (v == null) return null;
-        try { return new BigDecimal(v.replace(",","").replace("₹","").trim())
-                .setScale(2, RoundingMode.HALF_UP); }
-        catch (NumberFormatException e) { return null; }
+        try {
+            v = v.replace(",", "").replace("₹", "")
+                    .replace("<","").replace("km","").trim();
+            if (v.matches("-?\\d+")) { // Check if the value is an integer
+                return new BigDecimal(Integer.parseInt(v)).setScale(2, RoundingMode.HALF_UP);
+            }
+            return new BigDecimal(v).setScale(2, RoundingMode.HALF_UP);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
     private Integer parseInt(String v) {
         if (v == null) return null;
-        try { return Integer.parseInt(v.trim()); } catch (NumberFormatException e) { return null; }
+        try {
+            return (int) Double.parseDouble(v.trim());
+        } catch (NumberFormatException e) {
+            try {
+                return Integer.parseInt(v.trim());
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
     }
     private Instant parseInstant(String v) {
         if (v == null) return null;
         for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-                DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm:ss a",
-                        java.util.Locale.ENGLISH), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))) {
+                DateTimeFormatter.ofPattern("MMM dd, yyyy hh:mm:ss a", java.util.Locale.ENGLISH),
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
+                DateTimeFormatter.ofPattern("hh:mm a, MMMM dd yyyy", java.util.Locale.ENGLISH))) {
             try {
                 return java.time.LocalDateTime.parse(v.trim(), fmt)
                         .atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant();
