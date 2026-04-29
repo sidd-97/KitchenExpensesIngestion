@@ -64,7 +64,7 @@ public class ZomatoInvoiceRepository {
             ps.setString(i++,  r.getFileOrigin());
             ps.setObject(i++,  r.getSno());
             ps.setString(i++,  r.getOrderId());
-            ps.setObject(i++,  r.getOrderDate() != null ? Date.valueOf(r.getOrderDate()) : null);
+            ps.setObject(i++,  r.getOrderDate() != null ? Date.valueOf(String.valueOf(r.getOrderDate())) : null);
             ps.setObject(i++,  r.getWeekNo());
             ps.setString(i++,  r.getRestaurantName());
             ps.setString(i++,  r.getRestaurantId());
@@ -119,7 +119,7 @@ public class ZomatoInvoiceRepository {
             ps.setBigDecimal(i++, r.getNetAdditions());
             ps.setBigDecimal(i++, r.getOrderLevelPayout());
             ps.setString(i++,  r.getSettlementStatus());
-            ps.setObject(i++,  r.getSettlementDate() != null ? Date.valueOf(r.getSettlementDate()) : null);
+            ps.setObject(i++,  r.getSettlementDate() != null ? Date.valueOf(String.valueOf(r.getSettlementDate())) : null);
             ps.setString(i++,  r.getBankUtr());
             ps.setBigDecimal(i++, r.getUnsettledAmount());
             ps.setString(i++,  r.getCustomerId());

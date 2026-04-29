@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -151,7 +152,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
 
     @Override
     protected LocalDate parseToLocalDate(String rawValue) {
-        return parseDate(rawValue);
+        return LocalDate.from(parseDate(rawValue));
     }
 
     @Override
@@ -203,14 +204,14 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
         } catch (NumberFormatException e) { return null; }
     }
 
-    private LocalDate parseDate(String v) {
+    public LocalDateTime parseDate(String v) {
         if (v == null || v.isBlank()) return null;
         for (DateTimeFormatter fmt : List.of(
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH), // Handles date with time
                 DateTimeFormatter.ofPattern("dd/MM/yyyy"),
                 DateTimeFormatter.ofPattern("yyyy-MM-dd"),
-                DateTimeFormatter.ofPattern("d/M/yyyy"),
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))) { //ADDED: Fixed the time format changes dates having time in the end
-            try { return LocalDate.parse(v.trim(), fmt); }
+                DateTimeFormatter.ofPattern("d/M/yyyy"))) {
+            try { return LocalDateTime.parse(v.trim(), fmt); }
             catch (Exception ignored) {
                 log.warn("Could not parse timestamp: {}", v);
             }
