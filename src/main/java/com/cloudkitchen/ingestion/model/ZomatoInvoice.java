@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ public class ZomatoInvoice {
     // identity
     private Integer    sno;
     private String     orderId;
-    private LocalDateTime orderDate;               // primary date — used for report range
+    private Instant orderDate;               // primary date — used for report range
     private Integer    weekNo;
     private String     restaurantName;
     private String     restaurantId;
@@ -94,7 +95,7 @@ public class ZomatoInvoice {
     private BigDecimal netAdditions;
     private BigDecimal orderLevelPayout;
     private String     settlementStatus;
-    private LocalDateTime  settlementDate;
+    private Instant  settlementDate;
     private String     bankUtr;
     private BigDecimal unsettledAmount;
     private String     customerId;

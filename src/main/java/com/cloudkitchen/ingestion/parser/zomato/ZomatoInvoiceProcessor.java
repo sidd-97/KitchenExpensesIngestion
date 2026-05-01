@@ -15,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -83,7 +84,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .fileOrigin(fileOrigin)
                 .sno(intVal(row, "S.no."))
                 .orderId(str(row, "Order ID"))
-                .orderDate(parseDate(str(row, "Order date")))
+                .orderDate(parseInstant(str(row, "Order date")))
                 .weekNo(intVal(row, "Week no."))
                 .restaurantName(str(row, "Res. name"))
                 .restaurantId(str(row, "Res. ID"))
@@ -138,7 +139,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                 .netAdditions(dec(row, "Net Additions  \n(cancellation refund for cancelled orders/ tip for kitchen staff for delivered orders)"))
                 .orderLevelPayout(dec(row, "Order level Payout\n(A) - (F) + (G)"))
                 .settlementStatus(str(row, "Settlement status"))
-                .settlementDate(parseDate(str(row, "Settlement date")))
+                .settlementDate(parseInstant(str(row, "Settlement date")))
                 .bankUtr(str(row, "Bank UTR"))
                 .unsettledAmount(dec(row, "Unsettled amount"))
                 .customerId(str(row, "Customer ID"))
@@ -152,7 +153,7 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
 
     @Override
     protected LocalDate parseToLocalDate(String rawValue) {
-        return LocalDate.from(parseDate(rawValue));
+        return LocalDate.from(parseInstant(rawValue));
     }
 
     @Override
@@ -162,7 +163,11 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
 
     @Override
     protected void persistBatch(List<ZomatoInvoice> records, Long fileMetadataId) {
-        repository.batchInsert(records);
+        try {
+            repository.batchInsert(records);
+        } catch (Exception e) {
+            log.error("Failed to persist batch for fileMetadataId {}: {}", fileMetadataId, e.getMessage());
+        }
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
@@ -204,9 +209,18 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
         } catch (NumberFormatException e) { return null; }
     }
 
-    public LocalDateTime parseDate(String v) {
+    /*public LocalDateTime parseDate(String v) {
         if (v == null || v.isBlank()) return null;
-        for (DateTimeFormatter fmt : List.of(
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
+        try {
+            return LocalDateTime.parse(v.trim(), fmt);
+        } catch (Exception ignored) {
+            log.error("Failed to parse date [{}] with format [{}] with error[{}]", v, fmt, ignored.getMessage());
+            log.warn("Could not parse timestamp: {}", v);
+        }
+
+        *//*for (DateTimeFormatter fmt : List.of(
                 DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH), // Handles date with time
                 DateTimeFormatter.ofPattern("dd/MM/yyyy"),
                 DateTimeFormatter.ofPattern("yyyy-MM-dd"),
@@ -215,6 +229,20 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
             catch (Exception ignored) {
                 log.warn("Could not parse timestamp: {}", v);
             }
+        }*//*
+        return null;
+    }*/
+
+    private Instant parseInstant(String v) {
+        if (v == null) return null;
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
+        try {
+            return java.time.LocalDateTime.parse(v.trim(), fmt)
+                    .atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant();
+        } catch (Exception ignored) {
+            ignored.printStackTrace();
+            log.error("Failed to parse date [{}] with format [{}] with error[{}]", v, fmt, ignored.getMessage());
+            log.warn("Could not parse timestamp: {}", v);
         }
         return null;
     }
