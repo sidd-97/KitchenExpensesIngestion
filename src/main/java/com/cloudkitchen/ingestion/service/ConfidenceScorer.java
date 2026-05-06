@@ -20,7 +20,7 @@ public class ConfidenceScorer {
     // ── Swiggy Order ──────────────────────────────────────────────────────
 
     public void scoreSwiggyOrder(SwiggyOrder record) {
-        double score = 1.0;
+        double score = record.getConfidenceScore();
         List<String> flags = new ArrayList<>();
 
         if (isBlank(record.getOrderId()))          { score -= 0.30; flags.add("order_id_missing"); }
@@ -39,7 +39,7 @@ public class ConfidenceScorer {
     // ── Zomato Order ──────────────────────────────────────────────────────
 
     public void scoreZomatoOrder(ZomatoOrder record) {
-        double score = 1.0;
+        double score = record.getConfidenceScore();
         List<String> flags = new ArrayList<>();
 
         if (isBlank(record.getOrderId()))          { score -= 0.30; flags.add("order_id_missing"); }
@@ -56,7 +56,7 @@ public class ConfidenceScorer {
     // ── Zomato Invoice ────────────────────────────────────────────────────
 
     public void scoreZomatoInvoice(ZomatoInvoice record) {
-        double score = 1.0;
+        double score = record.getConfidenceScore();
         List<String> flags = new ArrayList<>();
 
         if (isBlank(record.getOrderId()))              { score -= 0.30; flags.add("order_id_missing"); }
@@ -74,7 +74,7 @@ public class ConfidenceScorer {
     // ── Offline Order ─────────────────────────────────────────────────────
 
     public void scoreOfflineOrder(OfflineOrder record) {
-        double score = 1.0;
+        double score = record.getConfidenceScore();
         List<String> flags = new ArrayList<>();
 
         if (isBlank(record.getOrderId()))             { score -= 0.30; flags.add("order_id_missing"); }
