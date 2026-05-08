@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -27,6 +26,9 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
 
     private static final String TARGET_SHEET = "Order Level";
     private static final String DATE_COLUMN  = "Order date";
+
+    // MODIFIED: header is on row index 6 (0-based) = row 7 in Excel
+    private static final int    HEADER_ROW_INDEX = 6;
 
     private final ZomatoInvoiceRepository repository;
 
@@ -47,19 +49,35 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
             Sheet sheet = wb.getSheet(TARGET_SHEET);
             if (sheet == null) {
                 throw new com.cloudkitchen.ingestion.exception.IngestionException(
-                        "Sheet '" + TARGET_SHEET + "' not found in: " + meta.getOriginalFileName());
+                        "Sheet '" + TARGET_SHEET + "' not found in: "
+                                + meta.getOriginalFileName());
             }
-            Row header = sheet.getRow(0);
-            if (header == null) return rows;
+
+            // MODIFIED: header starts at row 7 in Excel = index 6 (0-based)
+            Row headerRow = sheet.getRow(HEADER_ROW_INDEX);
+            if (headerRow == null) {
+                throw new com.cloudkitchen.ingestion.exception.IngestionException(
+                        "Header row not found at row " + (HEADER_ROW_INDEX + 1)
+                                + " in sheet '" + TARGET_SHEET + "'");
+            }
 
             // Build column index: colIndex → header name
             Map<Integer, String> colIndex = new HashMap<>();
-            for (int i = 0; i < header.getLastCellNum(); i++) {
-                Cell c = header.getCell(i);
-                if (c != null) colIndex.put(i, c.getStringCellValue().trim());
+            for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+                Cell c = headerRow.getCell(i);
+                if (c != null) {
+                    String headerName = cellToString(c).trim();
+                    if (!headerName.isBlank()) {
+                        colIndex.put(i, headerName);
+                    }
+                }
             }
 
-            for (int r = 1; r <= sheet.getLastRowNum(); r++) {
+            log.debug("[ZomatoInvoiceProcessor] Found {} columns in header row {}",
+                    colIndex.size(), HEADER_ROW_INDEX + 1);
+
+            // MODIFIED: data rows start from HEADER_ROW_INDEX + 1
+            for (int r = HEADER_ROW_INDEX + 1; r <= sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
                 Map<String, String> map = new HashMap<>();
@@ -67,11 +85,16 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
                     Cell cell = row.getCell(col);
                     map.put(headerName, cell != null ? cellToString(cell) : "");
                 });
-                // skip fully empty rows
-                if (map.values().stream().allMatch(String::isBlank)) continue;
+
+                // Skip fully empty rows
+                boolean allBlank = map.values().stream().allMatch(String::isBlank);
+                if (allBlank) continue;
+
                 rows.add(map);
             }
         }
+
+        log.info("[ZomatoInvoiceProcessor] Extracted {} data rows from sheet '{}'", rows.size(), TARGET_SHEET);
         return rows;
     }
 
@@ -195,16 +218,17 @@ public class ZomatoInvoiceProcessor extends AbstractFileProcessor<ZomatoInvoice>
     private BigDecimal dec(Map<String, String> row, String key) {
         String v = str(row, key);
         if (v == null) return null;
-        try { return new BigDecimal(v.replace(",","").replace("₹","").trim())
-                .setScale(2, RoundingMode.HALF_UP); }
-        catch (NumberFormatException e) { return null; }
+        try {
+            return new BigDecimal(v.replace(",", "").replace("₹", "").trim())
+                    .setScale(2, RoundingMode.HALF_UP);
+        } catch (NumberFormatException e) { return null; }
     }
 
     private Integer intVal(Map<String, String> row, String key) {
         String v = str(row, key);
         if (v == null) return null;
         try {
-            // Excel sometimes returns "1.0" for integers
+            // Excel returns integers as "1.0" — parse via double first
             return (int) Double.parseDouble(v);
         } catch (NumberFormatException e) { return null; }
     }
