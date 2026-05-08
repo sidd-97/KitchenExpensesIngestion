@@ -32,7 +32,7 @@ app:
       - type: LOCAL
         location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/zomato
         source-hint: ZOMATO
-        enabled: true
+        enabled: false
       - type: LOCAL
         location: /Users/siddharthsrivastava/Desktop/Personal_Projects/kitchen/offline
         source-hint: OFFLINE
@@ -46,13 +46,13 @@ app:
 #        source-hint: MANUAL_EXCEL
 #        enabled: true
       - type: S3
-        location: s3://my-kitchen-reports/swiggy/
+        location: s3://initial-learning-page/swiggy/
         source-hint: SWIGGY
-        enabled: false
+        enabled: true
       - type: S3
-        location: s3://my-kitchen-reports/swiggy/
-        source-hint: SWIGGY
-        enabled: false
+        location: s3://initial-learning-page/zomato/
+        source-hint: ZOMATO
+        enabled: true
 scheduling:
   ingestion:
     cron: "0 0 8 * * MON"
